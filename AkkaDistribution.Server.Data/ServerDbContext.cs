@@ -11,5 +11,6 @@ namespace AkkaDistribution.Server.Data
 
         public DbSet<Manifest> Manifests { get; set; }
         public DbSet<ManifestEntry> ManifestEntries { get; set; }
+        public DbSet<FilePartDelivery> FilePartDeliveries { get; set; }
     }
 }

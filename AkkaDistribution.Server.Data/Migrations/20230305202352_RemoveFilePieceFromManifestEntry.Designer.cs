@@ -3,6 +3,7 @@ using System;
 using AkkaDistribution.Server.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,41 +11,14 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace AkkaDistribution.Server.Data.Migrations
 {
     [DbContext(typeof(ServerDbContext))]
-    partial class ServerDbContextModelSnapshot : ModelSnapshot
+    [Migration("20230305202352_RemoveFilePieceFromManifestEntry")]
+    partial class RemoveFilePieceFromManifestEntry
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "7.0.3");
-
-            modelBuilder.Entity("AkkaDistribution.Server.Data.FilePartDelivery", b =>
-                {
-                    b.Property<int>("FilePartDeliveryId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("FileHash")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Filename")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Payload")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<int>("Position")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("TotalPieces")
-                        .HasColumnType("INTEGER");
-
-                    b.HasKey("FilePartDeliveryId");
-
-                    b.ToTable("FilePartDeliveries");
-                });
 
             modelBuilder.Entity("AkkaDistribution.Server.Data.Manifest", b =>
                 {
