@@ -24,7 +24,7 @@ namespace AkkaDistribution.Common
                 .ToArray();
 
             var manifestFiles = filepaths
-                .Select(s => new ManifestFile(s[(filelocation.DirectoryPath.Length)..], GetSHA1Hashes(s)));
+                .Select(s => new ManifestFile(s[(filelocation.DirectoryPath.Length+1)..], GetSHA1Hashes(s)));
 
             return new Manifest(DateTime.UtcNow, manifestFiles.ToHashSet());
         }
@@ -40,25 +40,28 @@ namespace AkkaDistribution.Common
 
         private const int batchSize = 125;
 
-        public static FilePartMessage[] SplitIntoMessages(string pathToSend, string filename, string fileHash)
+        public static List<FilePartMessage> SplitIntoMessages(string pathToSend, string filename, string fileHash)
         {
             var bytes = File.ReadAllBytes(pathToSend);
-            var chunks = Convert.ToBase64String(bytes).Chunk(batchSize).ToArray();
+
+            var chunks = Convert.ToBase64String(bytes)
+                .Chunk(batchSize)
+                .ToArray();
 
             FilePartMessage[] filePartMessages = new FilePartMessage[chunks.Length];
 
-            for (short i = 0; i < chunks.Length; i++)
+            for (int i = 0; i < chunks.Length; i++)
             {
                 filePartMessages[i] = new FilePartMessage
                     (filename
                     , fileHash
-                    , (short)chunks.Length
+                    , chunks.Length
                     , chunks[i].ToString()!
                     , i
                     );
             }
 
-            return filePartMessages;
+            return filePartMessages.ToList();
         }
     }
 }
