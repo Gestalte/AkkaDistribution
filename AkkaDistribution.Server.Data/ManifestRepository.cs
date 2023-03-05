@@ -3,43 +3,53 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace AkkaDistribution.Server.Data
 {
+
     public class ManifestRepository: IManifestRepository
     {
-        private readonly IServiceScopeFactory scopeFactory;
+        private readonly IServerDbContextFactory factory;
 
-        public ManifestRepository(IServiceScopeFactory scopeFactory)
+        public ManifestRepository(IServerDbContextFactory factory)
         {
-            this.scopeFactory = scopeFactory;
+            this.factory = factory;
         }
 
         public int SaveManifest(Common.Manifest manifest)
         {
-            using var scope = this.scopeFactory.CreateScope();
+            using var context = this.factory.Create();
+            using var transaction = context.Database.BeginTransaction();
 
-            var context = scope.ServiceProvider.GetRequiredService<ServerDbContext>();
+            Manifest newManifest = new();
 
-            Manifest newManifest = new()
+            try
             {
-                Timestamp = manifest.Timestamp,
-                ManifestEntries = manifest.Files.Select(s => new ManifestEntry
+                newManifest = new()
                 {
-                    Filename = s.Filename,
-                    FileHash = s.FileHash,
-                }).ToList()
-            };
+                    Timestamp = manifest.Timestamp,
+                    ManifestEntries = manifest.Files.Select(s => new ManifestEntry
+                    {
+                        Filename = s.Filename,
+                        FileHash = s.FileHash,
+                    }).ToList()
+                };
 
-            context.Manifests.Add(newManifest);
+                context.Manifests.Add(newManifest);
 
-            context.SaveChanges();
+                context.SaveChanges();
+
+                transaction.Commit();
+            }
+            catch (Exception)
+            {
+                transaction.Rollback();
+                throw;
+            }
 
             return newManifest.ManifestId;
         }
 
         public Common.Manifest GetNewestManifest()
         {
-            using var scope = this.scopeFactory.CreateScope();
-
-            var context = scope.ServiceProvider.GetRequiredService<ServerDbContext>();
+            using var context = this.factory.Create();
 
             var manifest = context.Manifests
                 .AsNoTracking()
