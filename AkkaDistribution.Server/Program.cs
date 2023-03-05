@@ -8,7 +8,7 @@ namespace AkkaDistribution.Server
         static void Main(string[] args)
         {
             var configFile = File.ReadAllText("hocon.conf");
-            var config=ConfigurationFactory.ParseString(configFile);
+            var config = ConfigurationFactory.ParseString(configFile);
 
             var actorSystem = ActorSystem.Create("server-actor-system", config);
         }

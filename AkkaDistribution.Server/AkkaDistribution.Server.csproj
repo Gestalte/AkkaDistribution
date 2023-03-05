@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -8,18 +8,23 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Remove="LoggerConfig.xml" />
+    <None Remove="hocon.conf" />
+    <None Remove="NLog.config" />
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="LoggerConfig.xml">
+    <Content Include="hocon.conf">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="NLog.config">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Akka" Version="1.5.0" />
+    <PackageReference Include="Akka" Version="1.4.49" />
     <PackageReference Include="Akka.Logger.NLog" Version="1.4.10" />
+    <PackageReference Include="Akka.Remote" Version="1.4.49" />
   </ItemGroup>
 
   <ItemGroup>
