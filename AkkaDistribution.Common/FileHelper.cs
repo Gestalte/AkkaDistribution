@@ -1,0 +1,31 @@
+﻿using System.Security.Cryptography;
+
+namespace AkkaDistribution.Common
+{
+    public class FileHelper
+    {
+        public static string GetSHA1Hashes(string filepath)
+        {
+            using SHA1 sha1 = SHA1.Create();
+            using var stream = File.OpenRead(filepath);
+            byte[] hashBytes = sha1.ComputeHash(stream);
+
+            return BitConverter.ToString(hashBytes).Replace("-", "");
+        }
+
+        public static Manifest GenerateManifestFromDirectory(FileBox filelocation)
+        {
+            var filepaths = Directory.EnumerateFiles
+                (filelocation.DirectoryPath
+                , "*.*"
+                , SearchOption.AllDirectories
+                )
+                .ToArray();
+
+            var manifestFiles = filepaths
+                .Select(s => new ManifestFile(s[(filelocation.DirectoryPath.Length)..], GetSHA1Hashes(s)));
+
+            return new Manifest(DateTime.UtcNow, manifestFiles.ToHashSet());
+        }
+    }
+}
