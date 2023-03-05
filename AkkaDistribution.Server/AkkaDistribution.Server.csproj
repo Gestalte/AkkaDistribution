@@ -29,6 +29,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\AkkaDistribution.Common\AkkaDistribution.Common.csproj" />
+    <ProjectReference Include="..\AkkaDistribution.Server.Data\AkkaDistribution.Server.Data.csproj" />
   </ItemGroup>
 
 </Project>
