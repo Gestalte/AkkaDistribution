@@ -1,4 +1,8 @@
-﻿public sealed record Manifest(DateTime Timesstamp, HashSet<ManifestFile> Files);
-public sealed record ManifestFile(string Filename, string FileHash);
-public sealed record FilePieceDelivery(string Filename, string FileHash, string FilePiece, short TotalPieces, short Position);
-public sealed record MissingPieces(string Filename, string FileHash, List<string[]> MissingPositions);
+﻿namespace AkkaDistribution.Common
+{
+    public sealed record Manifest(DateTime Timesstamp, HashSet<ManifestFile> Files);
+    public sealed record ManifestFile(string Filename, string FileHash);
+    public sealed record FilePieceDelivery(string Filename, string FileHash, string FilePiece, short TotalPieces, short Position);
+    public sealed record MissingPieces(string Filename, string FileHash, List<string[]> MissingPositions);
+    public sealed record ManifestRequest();
+}
