@@ -1,4 +1,5 @@
-﻿using System.Security.Cryptography;
+﻿using System.Diagnostics;
+using System.Security.Cryptography;
 
 namespace AkkaDistribution.Common
 {
@@ -26,6 +27,38 @@ namespace AkkaDistribution.Common
                 .Select(s => new ManifestFile(s[(filelocation.DirectoryPath.Length)..], GetSHA1Hashes(s)));
 
             return new Manifest(DateTime.UtcNow, manifestFiles.ToHashSet());
+        }
+
+        public static Manifest Difference(Manifest oldManifest, Manifest newManifest)
+        {
+            var fileDiff = newManifest.Files
+                .Except(oldManifest.Files)
+                .ToHashSet();
+
+            return new Manifest(DateTime.UtcNow, fileDiff);
+        }
+
+        private const int batchSize = 125;
+
+        public static FilePartMessage[] SplitIntoMessages(string pathToSend, string filename, string fileHash)
+        {
+            var bytes = File.ReadAllBytes(pathToSend);
+            var chunks = Convert.ToBase64String(bytes).Chunk(batchSize).ToArray();
+
+            FilePartMessage[] filePartMessages = new FilePartMessage[chunks.Length];
+
+            for (short i = 0; i < chunks.Length; i++)
+            {
+                filePartMessages[i] = new FilePartMessage
+                    (filename
+                    , fileHash
+                    , (short)chunks.Length
+                    , chunks[i].ToString()!
+                    , i
+                    );
+            }
+
+            return filePartMessages;
         }
     }
 }
