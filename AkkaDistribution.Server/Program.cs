@@ -2,6 +2,7 @@
 using Akka.Configuration;
 using Akka.Util.Internal;
 using AkkaDistribution.Common;
+using AkkaDistribution.Server.Actors;
 using AkkaDistribution.Server.Data;
 using Google.Protobuf.WellKnownTypes;
 using Microsoft.EntityFrameworkCore;
@@ -27,20 +28,21 @@ namespace AkkaDistribution.Server
 
             var actorSystem = ActorSystem.Create("server-actor-system", config);
 
-            FileBox fileBox = new ("SendFiles");
+            FileBox fileBox = new("SendFiles");
 
-            IServerDbContextFactory serverDbContextFactory=new ServerDbContextFactory();
+            IServerDbContextFactory serverDbContextFactory = new ServerDbContextFactory();
 
             IManifestRepository manifestRepo = new ManifestRepository(serverDbContextFactory);
             IFilePartDeliveryRepository FilePartDeliveryRepo = new FilePartDeliveryRepository(serverDbContextFactory);
 
             Props props = Props.Create(() => new FileTransferSupervisor(fileBox, manifestRepo, FilePartDeliveryRepo));
+            var fileTransferActor = actorSystem.ActorOf(props, "file-transfer");
 
-            var fileTransferActor= actorSystem.ActorOf(props,"file-transfer");
+            var y = actorSystem.ActorSelection("akka://server-actor-system/user/file-transfer/manifest-actor");
 
-            Task<Task<Common.Manifest>> manifest = fileTransferActor.Ask<Task<Common.Manifest>>(new ManifestRequest());
+            var manifest = y.Ask<Common.Manifest>(new ManifestRequest()).Result;
 
-            var x = manifest.Result.Result;
+            var x = manifest;
 
             Console.WriteLine(x.Timestamp);
             x.Files.ForEach(f => Console.WriteLine(f.FileHash + " - " + f.Filename));
