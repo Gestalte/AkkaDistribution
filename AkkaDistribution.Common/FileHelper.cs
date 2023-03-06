@@ -56,7 +56,7 @@ namespace AkkaDistribution.Common
                     (filename
                     , fileHash
                     , chunks.Length
-                    , chunks[i].ToString()!
+                    , chunks[i].Select(s => s.ToString()).Aggregate((a, b) => a + b)
                     , i
                     );
             }
