@@ -3,6 +3,7 @@ using Akka.Event;
 using Akka.Routing;
 using AkkaDistribution.Common;
 using AkkaDistribution.Server.Data;
+using static Akka.Remote.Transport.FailureInjectorTransportAdapter;
 using Manifest = AkkaDistribution.Common.Manifest;
 
 namespace AkkaDistribution.Server.Actors
@@ -21,20 +22,26 @@ namespace AkkaDistribution.Server.Actors
         {
             this.filebox = filebox;
 
-            Props manifestProps = Props
-                .Create(() => new ManifestActor(this.filebox, manifestRepository, filePartDeliveryRepository));
+            Props manifestProps = ManifestActor
+                .CreateProps(this.filebox, manifestRepository, filePartDeliveryRepository);
+            var manifestActor = Context.ActorOf(manifestProps,"manifest-actor");
 
-            var ManifestActor = Context.ActorOf(manifestProps,"manifest-actor");
-
-            Props serverProps = Props
-                .Create(() => new ServerActor(this.filebox, manifestRepository, filePartDeliveryRepository))
+            Props serverProps = ServerActor
+                .CreateProps()
                 .WithRouter(new RoundRobinPool(5, new DefaultResizer(1, 1000)));
-
             var serverActorRouter = Context.ActorOf(serverProps);
 
             Receive<MissingPieces>(serverActorRouter.Tell);
             Receive<Manifest>(serverActorRouter.Tell);
-
+        }
+        public static Props CreateProps
+            (FileBox filebox
+            , IManifestRepository manifestRepo
+            , IFilePartDeliveryRepository deliveryRepo
+            )
+        {   
+            return Props.Create(() => 
+                new FileTransferSupervisor(filebox, manifestRepo, deliveryRepo));
         }
     }
 }

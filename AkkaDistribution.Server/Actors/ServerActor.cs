@@ -10,22 +10,27 @@ namespace AkkaDistribution.Server.Actors
     {
         private readonly ILoggingAdapter logger = Context.GetLogger();
 
-        public ServerActor
-            (FileBox filebox
-            , IManifestRepository manifestRepository
-            , IFilePartDeliveryRepository filePartDeliveryRepository
-            )
+        // TODO: Check that manifest is still valid
+        // TODO: If its invalid, send a new manifest back.
+        // TODO: Select from db
+        // TODO: Send to sender.
+        public ServerActor() { }
+
+        public void Ready()
         {
-            Receive<Common.Manifest>(manifest =>
-            {
-                // TODO: Check that manifest is still valid
-                // TODO: If its invalid, send a new manifest back.
-
-                // TODO: Select from db
-                // TODO: Send to sender.
-            });
-
+            Receive<Common.Manifest>(_ => { });
             Receive<MissingPieces>(_ => { });
+        }
+
+        public void NotReady()
+        {
+            Receive<Common.Manifest>(_ => { });
+            Receive<MissingPieces>(_ => { });
+        }
+
+        public static Props CreateProps()
+        {
+            return Props.Create<ServerActor>();
         }
     }
 }

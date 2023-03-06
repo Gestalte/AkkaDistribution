@@ -47,8 +47,7 @@ namespace AkkaDistribution.Server.Actors
                 logger.Info($"difference: {difference.Timestamp}");
                 difference.Files.ForEach(f => logger.Info($"difference {f.FileHash} - {f.Filename}"));
 
-                // TODO: If there is a difference, currenty everything is
-                // deleted and recreated, see if there is a better way to do this.
+                // TODO: Find a better way to do this for performance.
                 if (difference.Files.Count != 0)
                 {
                     filePartDeliveryRepository.DeleteAllFilePartDeliveries();
@@ -70,5 +69,9 @@ namespace AkkaDistribution.Server.Actors
                 }
             });
         }
+
+        public static Props CreateProps
+            (FileBox filebox, IManifestRepository manifestRepository, IFilePartDeliveryRepository filePartDeliveryRepository)
+            => Props.Create(() => new ManifestActor(filebox, manifestRepository, filePartDeliveryRepository));
     }
 }
