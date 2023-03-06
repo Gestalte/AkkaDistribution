@@ -54,6 +54,8 @@ namespace AkkaDistribution.Server
                         filePartDeliveryRepository.OverwriteFilePartDeliveries(messages);
                     }
                 }
+
+                manifestRepository.SaveManifest(folderManifest);
             });
 
             Receive<MissingPieces>(_ => { });
