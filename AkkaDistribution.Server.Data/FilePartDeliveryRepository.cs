@@ -11,6 +11,42 @@ namespace AkkaDistribution.Server.Data
             this.factory = factory;
         }
 
+        private T WithTransaction<T>(Func<T> func, ServerDbContext context)
+        {
+            using var transaction = context.Database.BeginTransaction();
+
+            try
+            {
+                return func();
+            }
+            catch (Exception)
+            {
+                transaction.Rollback();
+                throw;
+            }
+        }
+
+        public void DeleteAllFilePartDeliveries()
+        {
+            using var context = this.factory.Create();
+            using var transaction = context.Database.BeginTransaction();
+
+            try
+            {
+                var all = context.FilePartDeliveries.ToList();
+                context.FilePartDeliveries.RemoveRange(all);
+
+                context.SaveChanges();
+
+                transaction.Commit();
+            }
+            catch (Exception)
+            {
+                transaction.Rollback();
+                throw;
+            }
+        }
+
         public void OverwriteFilePartDeliveries(List<FilePartMessage> filePartMessages)
         {
             using var context = this.factory.Create();
@@ -18,8 +54,6 @@ namespace AkkaDistribution.Server.Data
 
             try
             {
-                context.FilePartDeliveries.ToList().Clear();
-
                 context.FilePartDeliveries.AddRange(filePartMessages.Select(s => new FilePartDelivery
                 {
                     Position = s.Position,
