@@ -35,10 +35,10 @@ namespace AkkaDistribution.Server
             IManifestRepository manifestRepo = new ManifestRepository(serverDbContextFactory);
             IFilePartDeliveryRepository FilePartDeliveryRepo = new FilePartDeliveryRepository(serverDbContextFactory);
 
-            Props props = Props.Create(() => new FileTransferSupervisor(fileBox, manifestRepo, FilePartDeliveryRepo));
+            Props props = FileTransferSupervisor.CreateProps(fileBox, manifestRepo, FilePartDeliveryRepo);
             var fileTransferActor = actorSystem.ActorOf(props, "file-transfer");
 
-            var y = actorSystem.ActorSelection("akka://server-actor-system/user/file-transfer/manifest-actor");
+            var y = actorSystem.ActorSelection("akka://server-actor-system/user/file-transfer/manifest-actor");            
 
             var manifest = y.Ask<Common.Manifest>(new ManifestRequest()).Result;
 
