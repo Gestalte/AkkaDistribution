@@ -1,4 +1,5 @@
 ﻿using AkkaDistribution.Common;
+using Microsoft.EntityFrameworkCore;
 
 namespace AkkaDistribution.Server.Data
 {
@@ -73,6 +74,22 @@ namespace AkkaDistribution.Server.Data
 
                 throw;
             }
+        }
+
+        public List<FilePartMessage> GetFilePartsDeliveriesByManifest(Common.Manifest manifest)
+        {
+            using var context = this.factory.Create();
+            using var transaction = context.Database.BeginTransaction();
+
+            var filePartDeliveries = context.FilePartDeliveries
+                .AsNoTracking()
+                .Where(w => manifest.Files.Select(s => s.Filename)
+                .Contains(w.Filename))
+                .ToList();
+
+            return filePartDeliveries
+                .Select(s => new Common.FilePartMessage(s.Filename, s.FileHash, s.TotalPieces, s.Payload, s.Position))
+                .ToList();
         }
     }
 }
