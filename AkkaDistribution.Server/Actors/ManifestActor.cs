@@ -10,6 +10,8 @@ namespace AkkaDistribution.Server.Actors
     {
         private readonly ILoggingAdapter logger = Context.GetLogger();
 
+        public static event Action<bool>? WaitForSavingManifest;
+
         public ManifestActor
             (FileBox filebox
             , IManifestRepository manifestRepository
@@ -50,6 +52,8 @@ namespace AkkaDistribution.Server.Actors
                 // TODO: Find a better way to do this for performance.
                 if (difference.Files.Count != 0)
                 {
+                    WaitForSavingManifest?.Invoke(true);
+
                     filePartDeliveryRepository.DeleteAllFilePartDeliveries();
 
                     for (int i = 0; i < folderManifest.Files.Count; i++)
@@ -66,6 +70,8 @@ namespace AkkaDistribution.Server.Actors
                     manifestRepository.SaveManifest(folderManifest);
 
                     logger.Info($"Saved manifest to DB.");
+
+                    WaitForSavingManifest?.Invoke(false);
                 }
             });
         }
