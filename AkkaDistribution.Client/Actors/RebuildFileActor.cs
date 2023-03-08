@@ -1,6 +1,7 @@
 ﻿using Akka.Actor;
 using Akka.Event;
 using AkkaDistribution.Client;
+using AkkaDistribution.Client.Data;
 using AkkaDistribution.Common;
 
 namespace AkkaDistribution.Client.Actors // Note: actual namespace depends on the project name.
@@ -9,13 +10,17 @@ namespace AkkaDistribution.Client.Actors // Note: actual namespace depends on th
     {
         private readonly ILoggingAdapter logger = Context.GetLogger();
         private readonly IScheduler scheduler = Context.System.Scheduler;
+        private readonly IManifestRepository manifestRepository;
+        private readonly IFilePartRepository filePartRepository;
 
         private ICancelable schedulerCancel = default!;
         private DateTime timeout = default;
-        private Manifest manifest = default!;
 
-        public RebuildFileActor()
+        public RebuildFileActor(IManifestRepository manifestRepository,IFilePartRepository filePartRepository)
         {
+            this.manifestRepository = manifestRepository;
+            this.filePartRepository = filePartRepository;
+
             Become(Sleeping);
         }
 
@@ -45,12 +50,19 @@ namespace AkkaDistribution.Client.Actors // Note: actual namespace depends on th
             Receive<CheckIfTimedOut>(_ =>
             {
                 logger.Info("Received CheckIfTimedOut");
-                // TODO: Check the timeout
-
-                if (manifest == null)
+              
+                if (DateTime.UtcNow - timeout > TimeSpan.FromSeconds(10.0))
                 {
-                    // TODO: Read the manifest, cache it.
-                    //this.manifest = 
+                    logger.Info("Receiving files timed out");
+
+                    var dbManifest = this.manifestRepository.GetNewestManifest();
+
+                    // TODO: Check if db file parts match what is described in the manifest.
+                    // TODO: If they match build the files
+                    // TODO: If they don't prepare a Missing files request.
+                    // TODO: Once all files are build, compare them to the manifest to see if it was done correctly.
+                    // TODO: If it wasn't, delete the files that are wrong and try them again.
+                    // TODO: if everything is fine send self TransferComplete
                 }
             });
         }
