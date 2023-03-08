@@ -3,17 +3,16 @@ using Akka.Event;
 using Akka.Routing;
 using AkkaDistribution.Client.Data;
 using AkkaDistribution.Common;
-using MyApp;
 
-namespace AkkaDistribution.Client.Actors // Note: actual namespace depends on the project name.
+namespace AkkaDistribution.Client.Actors
 {
     public class ReceiveFileSupervisor : ReceiveActor
     {
         private readonly ILoggingAdapter logger = Context.GetLogger();        
 
-        public ReceiveFileSupervisor(IFilePartRepository filePartRepository)
+        public ReceiveFileSupervisor(IManifestRepository manifestRepository,IFilePartRepository filePartRepository,FileBox fileBox)
         {
-            Props rebuildFileProps = Props.Create(() => new RebuildFileActor());
+            Props rebuildFileProps = RebuildFileActor.CreateProps(manifestRepository, filePartRepository, fileBox);
             var rebuildFileActor = Context.ActorOf(rebuildFileProps, "rebuild-file-actor");
 
             Props receiveFileProps = ReceiveFilePartActor.CreateProps(filePartRepository)
@@ -21,6 +20,11 @@ namespace AkkaDistribution.Client.Actors // Note: actual namespace depends on th
             var receiveFilePartRouter = Context.ActorOf(receiveFileProps);
 
             Receive<FilePartMessage>(receiveFilePartRouter.Forward);
+        }
+
+        public static Props CreateProps(IManifestRepository manifestRepository, IFilePartRepository filePartRepository, FileBox fileBox)
+        {
+            return Props.Create(() => new ReceiveFileSupervisor(manifestRepository, filePartRepository, fileBox));
         }
     }
 }
