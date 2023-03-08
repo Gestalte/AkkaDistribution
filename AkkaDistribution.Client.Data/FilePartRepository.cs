@@ -2,7 +2,7 @@
 
 namespace AkkaDistribution.Client.Data
 {
-    internal class FilePartRepository : IFilePartRepository
+    public class FilePartRepository : IFilePartRepository
     {
         private readonly IClientDbContextFactory factory;
 

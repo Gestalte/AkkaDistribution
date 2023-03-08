@@ -2,7 +2,7 @@
 
 namespace AkkaDistribution.Client.Data
 {
-    internal interface IFilePartRepository
+    public interface IFilePartRepository
     {
         int Add(FilePartMessage filePartMessage);
     }
