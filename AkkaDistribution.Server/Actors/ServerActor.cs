@@ -10,18 +10,32 @@ namespace AkkaDistribution.Server.Actors
     {
         private readonly ILoggingAdapter logger = Context.GetLogger();
 
-        IManifestRepository manifestRepository;
-        IFilePartDeliveryRepository filePartDeliveryRepository;
+        private readonly IManifestRepository manifestRepository;
+        private readonly IFilePartDeliveryRepository filePartDeliveryRepository;
 
         private readonly IActorRef sendFilePartActor;
 
-        public IStash Stash { get; set; }
+        public IStash Stash { get; set; } = null!;
+
+        private string address = Context.Self.Path.ToStringWithAddress();
 
         public ServerActor
             (IManifestRepository manifestRepository
             , IFilePartDeliveryRepository filePartDeliveryRepository
             )
         {
+            ManifestActor.WaitForSavingManifest += wait =>
+            {
+                if (wait)
+                {
+                    Become(NotReady);
+                }
+                else
+                {
+                    Become(Ready);
+                }
+            };
+
             this.manifestRepository = manifestRepository;
             this.filePartDeliveryRepository = filePartDeliveryRepository;
 
@@ -32,40 +46,43 @@ namespace AkkaDistribution.Server.Actors
             this.sendFilePartActor = Context.ActorOf(props);
 
             Become(Ready);
-        }
+        }        
 
         public void Ready()
         {
-            Stash.UnstashAll();
+            logger.Info($"{this.address} Now Ready");
+
+            Stash?.UnstashAll();
 
             Receive<Common.Manifest>(manifest =>
             {
-                logger.Info($"Received Manifest");
+                logger.Info($"{this.address} Received Manifest");
+                logger.Info($"Sender: {Sender.Path}");
 
                 var dbManifest = this.manifestRepository.GetNewestManifest();
 
                 var difference = FileHelper.Difference(manifest, dbManifest); // TODO: Test this.
 
-                if (difference != null)
+                if (difference.Files.Count != 0)
                 {
-                    Sender.Tell(dbManifest);
+                    Sender.Tell(dbManifest); // TODO: Sender is always FileTransferSupervisor
 
-                    logger.Info($"Client had an older manifest, sent them a new one.");
-
-                    return;
+                    logger.Info($"{this.address} Client had an older manifest, sent them a new one.");
                 }
-
-                var FilePartDeliveries = this.filePartDeliveryRepository.GetFilePartsDeliveriesByManifest(manifest);
-
-                for (int i = 0; i < FilePartDeliveries.Count; i++)
+                else
                 {
-                    this.sendFilePartActor.Tell(FilePartDeliveries[i]);
+                    var FilePartDeliveries = this.filePartDeliveryRepository.GetFilePartsDeliveriesByManifest(manifest);
+
+                    for (int i = 0; i < FilePartDeliveries.Count; i++)
+                    {
+                        this.sendFilePartActor.Tell(FilePartDeliveries[i]);
+                    }
                 }
             });
 
             Receive<MissingPieces>(missingPieces =>
             {
-                logger.Info($"Received MissingPieces");
+                logger.Info($"{this.address} Received MissingPieces");
 
                 var dbManifest = this.manifestRepository.GetNewestManifest();
 
@@ -84,15 +101,18 @@ namespace AkkaDistribution.Server.Actors
         // TODO: While the files pieces are being split and saved stash messages.
         public void NotReady()
         {
-            Stash.Stash();
+            logger.Info($"{this.address} Now NotReady");
 
-            Receive<Common.Manifest>(_ => { });
-            Receive<MissingPieces>(_ => { });
+            Receive<Common.Manifest>(_ => { Stash?.Stash(); });
+            Receive<MissingPieces>(_ => { Stash?.Stash(); });
         }
 
-        public static Props CreateProps()
+        public static Props CreateProps
+            (IManifestRepository manifestRepository
+            , IFilePartDeliveryRepository filePartDeliveryRepository
+            )
         {
-            return Props.Create<ServerActor>();
+            return Props.Create(() => new ServerActor(manifestRepository, filePartDeliveryRepository));
         }
     }
 }
