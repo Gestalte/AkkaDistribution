@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Akka.Actor;
+using Akka.Configuration;
 
 namespace MyApp // Note: actual namespace depends on the project name.
 {
@@ -6,7 +7,13 @@ namespace MyApp // Note: actual namespace depends on the project name.
     {
         static void Main(string[] args)
         {
-            Console.WriteLine("Hello World!");
+            // TODO: Move this to a class anc call that here.
+            var configFile = File.ReadAllText("hocon.conf");
+            var config = ConfigurationFactory.ParseString(configFile);
+
+            var actorSystem = ActorSystem.Create("file-receive-system", config);
+
+            actorSystem.WhenTerminated.Wait();
         }
     }
 }
