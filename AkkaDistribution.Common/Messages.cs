@@ -6,4 +6,5 @@
     public sealed record ManifestRequest();
     public sealed record ManifestUpdate(Manifest Manifest);
     public sealed record FilePartMessage(string Filename, string FileHash, int TotalPieces, string FilePart, int Position);
+    public sealed record ManifestBeingCreated(bool IsDone);
 }
