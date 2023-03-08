@@ -27,13 +27,14 @@ namespace AkkaDistribution.Server.Actors
             var manifestActor = Context.ActorOf(manifestProps,"manifest-actor");
 
             Props serverProps = ServerActor
-                .CreateProps()
+                .CreateProps(manifestRepository,filePartDeliveryRepository)
                 .WithRouter(new RoundRobinPool(5, new DefaultResizer(1, 1000)));
             var serverActorRouter = Context.ActorOf(serverProps);
 
-            Receive<MissingPieces>(serverActorRouter.Tell);
-            Receive<Manifest>(serverActorRouter.Tell);
+            Receive<MissingPieces>(serverActorRouter.Forward); // TODO: Test this.
+            Receive<Manifest>(serverActorRouter.Forward);
         }
+
         public static Props CreateProps
             (FileBox filebox
             , IManifestRepository manifestRepo
