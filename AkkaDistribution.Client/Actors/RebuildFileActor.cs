@@ -3,6 +3,7 @@ using Akka.Event;
 using AkkaDistribution.Client;
 using AkkaDistribution.Client.Data;
 using AkkaDistribution.Common;
+using System.Reflection.PortableExecutable;
 
 namespace AkkaDistribution.Client.Actors // Note: actual namespace depends on the project name.
 {
@@ -12,14 +13,19 @@ namespace AkkaDistribution.Client.Actors // Note: actual namespace depends on th
         private readonly IScheduler scheduler = Context.System.Scheduler;
         private readonly IManifestRepository manifestRepository;
         private readonly IFilePartRepository filePartRepository;
+        private readonly ActorSelection manifestActor;
+        private readonly FileBox fileBox;
 
         private ICancelable schedulerCancel = default!;
         private DateTime timeout = default;
 
-        public RebuildFileActor(IManifestRepository manifestRepository,IFilePartRepository filePartRepository)
+        public RebuildFileActor(IManifestRepository manifestRepository, IFilePartRepository filePartRepository, FileBox fileBox)
         {
             this.manifestRepository = manifestRepository;
             this.filePartRepository = filePartRepository;
+            this.fileBox = fileBox;
+
+            manifestActor = Context.ActorSelection("akka://server-actor-system@localhost:8080/user/file-transfer/manifest-actor");
 
             Become(Sleeping);
         }
@@ -50,19 +56,42 @@ namespace AkkaDistribution.Client.Actors // Note: actual namespace depends on th
             Receive<CheckIfTimedOut>(_ =>
             {
                 logger.Info("Received CheckIfTimedOut");
-              
+
                 if (DateTime.UtcNow - timeout > TimeSpan.FromSeconds(10.0))
                 {
                     logger.Info("Receiving files timed out");
 
                     var dbManifest = this.manifestRepository.GetNewestManifest();
 
-                    // TODO: Check if db file parts match what is described in the manifest.
-                    // TODO: If they match build the files
-                    // TODO: If they don't prepare a Missing files request.
-                    // TODO: Once all files are build, compare them to the manifest to see if it was done correctly.
-                    // TODO: If it wasn't, delete the files that are wrong and try them again.
-                    // TODO: if everything is fine send self TransferComplete
+                    // Check if db file parts match what is described in the manifest.
+                    var missingFiles = this.filePartRepository.GetMissingFilePieces(dbManifest);
+
+                    if (missingFiles.Missing.Length != 0)
+                    {
+                        logger.Info($"Missing File parts: {missingFiles.Missing.Length} files still have missing parts.");
+
+                        manifestActor.Tell(missingFiles);
+                    }
+                    else
+                    {
+                        logger.Info($"No missing file parts");
+
+                        foreach (var file in dbManifest.Files)
+                        {
+                            string base64 = this.filePartRepository.GetFilePiecesByFilenameAndHash(file.Filename, file.FileHash);
+
+                            byte[] newBytes = Convert.FromBase64String(base64);
+
+                            File.WriteAllBytes(Path.Combine(this.fileBox.DirectoryPath, file.Filename), newBytes);
+                        }
+
+                        logger.Info($"Files have been rebuilt.");
+
+                        // TODO: Check if built files match the manifest.
+                        // TODO: If it some don't, delete the files that are wrong and try them again.
+                        // TODO: Delete all file parts from the DB.
+                        // TODO: if everything is fine send self TransferComplete
+                    }
                 }
             });
         }
@@ -80,6 +109,11 @@ namespace AkkaDistribution.Client.Actors // Note: actual namespace depends on th
 
                 Become(Awake);
             });
+        }
+
+        public static Props CreateProps(IManifestRepository manifestRepository, IFilePartRepository filePartRepository, FileBox fileBox)
+        {
+            return Props.Create(() => new RebuildFileActor(manifestRepository, filePartRepository, fileBox));
         }
     }
 }
