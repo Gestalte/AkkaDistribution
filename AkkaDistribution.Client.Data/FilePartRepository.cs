@@ -1,4 +1,6 @@
 ﻿using AkkaDistribution.Common;
+using System;
+using System.Collections;
 
 namespace AkkaDistribution.Client.Data
 {
@@ -54,5 +56,30 @@ namespace AkkaDistribution.Client.Data
 
             return id;
         }
+
+        // TODO: Check if db file parts match what is described in the manifest.
+        public Common.MissingPieces CompareFilePartsToManifest(Common.Manifest manifest)
+        {
+            using var context = this.factory.Create();
+
+            // TODO: Recursion ho!
+            Func<HashSet<int>, HashSet<int>, List<int[]>> getMissingPositions;
+
+            Func <IGrouping<string, FilePart>, Common.MissingPiece> func=null; // TODO: Complete function
+
+
+
+            var x = (from n in context.FileParts
+                     group n by n.Filename into m
+                     select new
+                     {
+                         MissingPiece = func(m)
+                     }).ToArray();
+
+            // TODO: make new MissingPieces
+
+            throw new NotImplementedException();
+        }
+
     }
 }
