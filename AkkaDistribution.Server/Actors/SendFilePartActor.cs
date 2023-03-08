@@ -24,7 +24,9 @@ namespace AkkaDistribution.Server.Actors
 
                 receiveActor.Tell(message);
 
-                logger.Info($"Sent part: {message.Position} or {message.TotalPieces}");
+                var l = message.Filename.Length;
+
+                logger.Info($"Sent {message.Filename[..(l < 15 ? l : 15)]} part: {message.Position} of {message.TotalPieces}");
             });
         }
     }
