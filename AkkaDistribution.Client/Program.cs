@@ -4,7 +4,7 @@ using AkkaDistribution.Client;
 using AkkaDistribution.Client.Actors;
 using AkkaDistribution.Client.Data;
 using AkkaDistribution.Common;
-using System.Reflection;
+using Microsoft.EntityFrameworkCore;
 
 namespace MyApp // Note: actual namespace depends on the project name.
 {
@@ -12,6 +12,16 @@ namespace MyApp // Note: actual namespace depends on the project name.
     {
         static void Main(string[] args)
         {
+            // Set up DB.
+
+            using (var dbContext = new ClientDbContext())
+            {
+                if (dbContext.Database.GetPendingMigrations().ToList().Count != 0)
+                {
+                    dbContext.Database.Migrate();
+                }
+            }
+
             // Set up dependencies.
 
             IClientDbContextFactory factory = new ClientDbContextFactory();
