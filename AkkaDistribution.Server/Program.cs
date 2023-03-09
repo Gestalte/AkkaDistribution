@@ -38,24 +38,7 @@ namespace AkkaDistribution.Server
             Props props = FileTransferSupervisor.CreateProps(fileBox, manifestRepo, FilePartDeliveryRepo);
             var fileTransferActor = actorSystem.ActorOf(props, "file-transfer");
 
-
-
-
-            var manifestActor = actorSystem.ActorSelection("akka://server-actor-system/user/file-transfer/manifest-actor");            
-
-            var manifest = manifestActor.Ask<Common.Manifest>(new ManifestRequest()).Result;
-
-            Console.WriteLine(manifest.Timestamp);
-            manifest.Files.ForEach(f => Console.WriteLine(f.FileHash + " - " + f.Filename));
-
-            var man = new Common.Manifest(DateTime.UtcNow, new List<Common.ManifestFile>
-            {
-                new ManifestFile("google-services.json",""),
-            }.ToHashSet());
-
-            fileTransferActor.Tell(man);
-
-
+            Console.WriteLine("Ready");
 
             actorSystem.WhenTerminated.Wait();
         }
