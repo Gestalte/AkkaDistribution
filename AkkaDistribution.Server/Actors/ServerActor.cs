@@ -61,7 +61,7 @@ namespace AkkaDistribution.Server.Actors
 
                 var dbManifest = this.manifestRepository.GetNewestManifest();
 
-                var difference = FileHelper.Difference(manifest, dbManifest); // TODO: Test this.
+                var difference = FileHelper.Difference(manifest, dbManifest);
 
                 if (difference.Files.Count != 0)
                 {
