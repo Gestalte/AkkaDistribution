@@ -45,6 +45,8 @@ namespace MyApp // Note: actual namespace depends on the project name.
             var requestFilesProps = Props.Create(() => new RequestFilesActor());
             var requestFilesActor = actorSystem.ActorOf(requestFilesProps);
 
+            RebuildFileActor.AllFilesReceived += () => Console.WriteLine("All files have been received.");
+
             while (true)
             {
                 Console.WriteLine("Enter \"r\" to request file trasfer or \"e\" to exit.");

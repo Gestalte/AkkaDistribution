@@ -49,7 +49,7 @@ namespace AkkaDistribution.Client.Actors // Note: actual namespace depends on th
             Receive<TransferComplete>(_ =>
             {
                 logger.Info("Received TransferComplete");
-                // TODO: Tell the UI that the transfer is done.
+                AllFilesReceived?.Invoke();
                 Become(Sleeping);
             });
 
@@ -95,6 +95,8 @@ namespace AkkaDistribution.Client.Actors // Note: actual namespace depends on th
                 }
             });
         }
+
+        public static event Action AllFilesReceived;
 
         public void Sleeping()
         {
