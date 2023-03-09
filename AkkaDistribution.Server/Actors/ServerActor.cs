@@ -46,7 +46,7 @@ namespace AkkaDistribution.Server.Actors
             this.sendFilePartActor = Context.ActorOf(props);
 
             Become(Ready);
-        }        
+        }
 
         public void Ready()
         {
@@ -86,14 +86,65 @@ namespace AkkaDistribution.Server.Actors
 
                 var dbManifest = this.manifestRepository.GetNewestManifest();
 
-                // TODO: Test manifest against missing pieces send dbManifest if the client has old files.
-                // TODO: Get file pieces from db
+                var filePartMessages = this.filePartDeliveryRepository.GetFilePartsDeliveriesByManifest(dbManifest);
 
-                List<FilePartDelivery> FilePartDeliveries = new();
+                var missingFiles = missingPieces.MissingFiles
+                    .Select(s => new ManifestFile(s.Filename, s.FileHash))
+                    .ToHashSet();
 
-                for (int i = 0; i < FilePartDeliveries.Count; i++)
+                var missingFilesManifest = new Common.Manifest(DateTime.UtcNow, missingFiles);
+
+                static bool isPieceValid(MissingPiece piece, List<FilePartMessage> validPieces)
                 {
-                    this.sendFilePartActor.Tell(FilePartDeliveries[i]);
+                    // Check that file exists
+                    return validPieces
+                        .Select(s => s.Filename == piece.Filename && s.FileHash == piece.FileHash)
+                        .Any(a => a == false);
+                }
+
+                bool validMissing = missingPieces.Missing
+                    .Select(s => isPieceValid(s, filePartMessages))
+                    .Any(a => a == false);
+
+                // Are there files in the client manifest that are not in the
+                // dbManifest or are there pieces in the missing list that are
+                // not in the db?
+                if (missingFilesManifest.Files.Except(dbManifest.Files).Count() < 0 || validMissing != true)
+                {
+                    logger.Info($"{this.address} Received invalid Missing pieces, sent back a new manifest");
+
+                    Sender.Tell(dbManifest); // TODO: make sure this is being sent to the right actor.
+                }
+                else // Missing files are valid
+                {
+                    logger.Info($"{this.address} Received valid Missing pieces");
+
+                    List<FilePartDelivery> FilePartDeliveries = new();
+
+                    static FilePartDelivery toFilePartDelivery(FilePartMessage m)
+                        => new()
+                        {
+                            Filename = m.Filename,
+                            FileHash = m.FileHash,
+                            TotalPieces = m.TotalPieces,
+                            Position = m.Position,
+                            Payload = m.FilePart,
+                        };
+
+                    FilePartDeliveries.AddRange(missingPieces.MissingFiles
+                         .SelectMany(s => filePartMessages.Where(w => w.Filename == s.Filename))
+                        .Select(toFilePartDelivery)
+                        .ToArray());
+
+                    FilePartDeliveries.AddRange(missingPieces.Missing
+                        .SelectMany(s => filePartMessages.Where(w => w.Filename == s.Filename))
+                        .Select(toFilePartDelivery)
+                        .ToArray());
+
+                    for (int i = 0; i < FilePartDeliveries.Count; i++)
+                    {
+                        this.sendFilePartActor.Tell(FilePartDeliveries[i]);
+                    }
                 }
             });
         }
