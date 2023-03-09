@@ -10,5 +10,4 @@ namespace AkkaDistribution.Client
     public sealed record ResetTimeout();
     public sealed record TransferComplete();
     public sealed record CheckIfTimedOut();
-    public sealed record RequestManifest();
 }
