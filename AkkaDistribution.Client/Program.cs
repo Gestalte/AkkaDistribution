@@ -42,7 +42,7 @@ namespace MyApp // Note: actual namespace depends on the project name.
             var receiveSupervisorProps = ReceiveFileSupervisor.CreateProps(manifestRepo, filePartRepo, fileBox);
             _ = actorSystem.ActorOf(receiveSupervisorProps, "receive-file-coordinator-actor");
 
-            var requestFilesProps = Props.Create(() => new RequestFilesActor());
+            var requestFilesProps = RequestFilesActor.CreateProps(manifestRepo);
             var requestFilesActor = actorSystem.ActorOf(requestFilesProps);
 
             RebuildFileActor.AllFilesReceived += () => Console.WriteLine("All files have been received.");
@@ -53,7 +53,7 @@ namespace MyApp // Note: actual namespace depends on the project name.
                 var input = Console.ReadLine();
                 if (input=="r")
                 {
-                    requestFilesActor.Tell(new RequestManifest());
+                    requestFilesActor.Tell(new ManifestRequest());
                 }
                 else if (input=="e")
                 {
