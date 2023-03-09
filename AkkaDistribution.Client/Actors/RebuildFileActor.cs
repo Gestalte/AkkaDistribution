@@ -67,7 +67,7 @@ namespace AkkaDistribution.Client.Actors // Note: actual namespace depends on th
                     // Check if db file parts match what is described in the manifest.
                     var missingFiles = this.filePartRepository.GetMissingFilePieces(dbManifest);
 
-                    if (missingFiles.Missing.Length != 0)
+                    if (missingFiles.Missing.Length != 0 && missingFiles.MissingFiles.Length != 0)
                     {
                         logger.Info($"Missing File parts: {missingFiles.Missing.Length} files still have missing parts.");
 
