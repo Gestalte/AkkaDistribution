@@ -86,7 +86,7 @@ namespace AkkaDistribution.Server.Actors
 
                 var dbManifest = this.manifestRepository.GetNewestManifest();
 
-                // TODO: Test manifest agains missing pieces send dbManifest if the client has old files.
+                // TODO: Test manifest against missing pieces send dbManifest if the client has old files.
                 // TODO: Get file pieces from db
 
                 List<FilePartDelivery> FilePartDeliveries = new();
@@ -98,7 +98,6 @@ namespace AkkaDistribution.Server.Actors
             });
         }
 
-        // TODO: While the files pieces are being split and saved stash messages.
         public void NotReady()
         {
             logger.Info($"{this.address} Now NotReady");
