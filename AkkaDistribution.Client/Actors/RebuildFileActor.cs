@@ -3,7 +3,6 @@ using Akka.Event;
 using AkkaDistribution.Client;
 using AkkaDistribution.Client.Data;
 using AkkaDistribution.Common;
-using System.Reflection.PortableExecutable;
 
 namespace AkkaDistribution.Client.Actors // Note: actual namespace depends on the project name.
 {
@@ -59,7 +58,7 @@ namespace AkkaDistribution.Client.Actors // Note: actual namespace depends on th
             {
                 logger.Info("Received CheckIfTimedOut");
 
-                if (DateTime.UtcNow - timeout > TimeSpan.FromSeconds(10.0))
+                if (DateTime.UtcNow - timeout > TimeSpan.FromSeconds(5.0))
                 {
                     logger.Info("Receiving files timed out");
 
