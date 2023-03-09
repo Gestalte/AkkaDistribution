@@ -14,11 +14,13 @@ namespace AkkaDistribution.Client.Actors
         {
             this.filePartRepository = filePartRepository;
 
-            var address = $"akka.tcp://file-receive-system/user/rebuild-file-actor";
+            var address = "akka://file-receive-system/user/receive-file-coordinator-actor/rebuild-file-actor";
             var rebuildFileActor = Context.ActorSelection(address);
 
             Receive<FilePartMessage>(filePartMessage =>
             {
+                logger.Info($"Received FilePartMessage: {filePartMessage.Filename} part {filePartMessage.Position} of {filePartMessage.TotalPieces}");
+
                 this.filePartRepository.Add(filePartMessage);
 
                 rebuildFileActor.Tell(new WakeUp());

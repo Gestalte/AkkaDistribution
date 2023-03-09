@@ -25,7 +25,9 @@ namespace AkkaDistribution.Client.Actors // Note: actual namespace depends on th
             this.filePartRepository = filePartRepository;
             this.fileBox = fileBox;
 
-            manifestActor = Context.ActorSelection("akka://server-actor-system@localhost:8080/user/file-transfer/manifest-actor");
+            manifestActor = Context.ActorSelection("akka.tcp://server-actor-system@localhost:8080/user/file-transfer/manifest-actor");
+
+            logger.Info(Context.Self.Path.ToStringWithAddress());
 
             Become(Sleeping);
         }

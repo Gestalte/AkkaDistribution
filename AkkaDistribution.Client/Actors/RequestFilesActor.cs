@@ -13,8 +13,8 @@ namespace AkkaDistribution.Client.Actors // Note: actual namespace depends on th
         public RequestFilesActor()
         {
             // TODO: load from config
-            manifestActor = Context.ActorSelection("akka://server-actor-system@localhost:8080/user/file-transfer/manifest-actor");
-            fileTransferActor = Context.ActorSelection("akka://server-actor-system@localhost:8080/user/file-transfer");
+            manifestActor = Context.ActorSelection("akka.tcp://server-actor-system@localhost:8080/user/file-transfer/manifest-actor");
+            fileTransferActor = Context.ActorSelection("akka.tcp://server-actor-system@localhost:8080/user/file-transfer");
 
             Receive<RequestManifest>(_ =>
             {
