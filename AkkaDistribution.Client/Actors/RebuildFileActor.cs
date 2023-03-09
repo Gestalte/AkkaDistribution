@@ -88,6 +88,8 @@ namespace AkkaDistribution.Client.Actors // Note: actual namespace depends on th
 
                         logger.Info($"Files have been rebuilt.");
 
+                        Become(Sleeping);
+
                         // TODO: Check if built files match the manifest.
                         // TODO: If it some don't, delete the files that are wrong and try them again.
                         // TODO: Delete all file parts from the DB.
