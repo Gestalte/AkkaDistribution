@@ -1,5 +1,6 @@
 ﻿using Akka.Actor;
 using Akka.Event;
+using AkkaDistribution.Client.Data;
 using AkkaDistribution.Common;
 
 namespace AkkaDistribution.Client.Actors // Note: actual namespace depends on the project name.
@@ -9,39 +10,51 @@ namespace AkkaDistribution.Client.Actors // Note: actual namespace depends on th
         private readonly ILoggingAdapter logger = Context.GetLogger();
         private readonly ActorSelection manifestActor;
         private readonly ActorSelection fileTransferActor;
+        private readonly IManifestRepository manifestRepository;
 
-        public RequestFilesActor()
+        public RequestFilesActor(IManifestRepository manifestRepository)
         {
+            this.manifestRepository = manifestRepository;
+
             // TODO: load from config
             manifestActor = Context.ActorSelection("akka.tcp://server-actor-system@localhost:8080/user/file-transfer/manifest-actor");
             fileTransferActor = Context.ActorSelection("akka.tcp://server-actor-system@localhost:8080/user/file-transfer");
 
-            Receive<RequestManifest>(_ =>
+            Receive<ManifestRequest>(_ =>
             {
                 logger.Info("Recieved RequestManifest");
                 RequestFiles();
             });
 
-            Receive<Manifest>(manifest =>
+            Receive<Common.Manifest>(manifest =>
             {
                 logger.Info("Recieved Manifest");
                 RequestFiles(manifest);
             });
         }
 
-        private void RequestFiles(Manifest manifest = null!)
+        private void RequestFiles(Common.Manifest manifest = null!)
         {
             if (manifest == null)
             {
-                manifestActor.Ask(new RequestManifest());
+                var received = manifestActor.Ask<Common.Manifest>(new ManifestRequest()).Result;
+
+                Context.Self.Tell(received);
             }
             else
             {
                 logger.Info($"Manifest: {manifest.Timestamp}");
                 manifest.Files.ToList().ForEach(f => logger.Info($"folderManifest {f.FileHash} - {f.Filename}"));
 
+                this.manifestRepository.SaveManifest(manifest);
+
                 fileTransferActor.Tell(manifest);
             }
+        }
+
+        public static Props CreateProps(IManifestRepository manifestRepository)
+        {
+            return Props.Create(() => new RequestFilesActor(manifestRepository));
         }
     }
 }
