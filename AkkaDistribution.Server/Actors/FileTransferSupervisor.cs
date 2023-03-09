@@ -31,7 +31,7 @@ namespace AkkaDistribution.Server.Actors
                 .WithRouter(new RoundRobinPool(5, new DefaultResizer(1, 1000)));
             var serverActorRouter = Context.ActorOf(serverProps);
 
-            Receive<MissingPieces>(serverActorRouter.Forward); // TODO: Test this.
+            Receive<MissingPieces>(serverActorRouter.Forward);
             Receive<Manifest>(serverActorRouter.Forward);
         }
 
