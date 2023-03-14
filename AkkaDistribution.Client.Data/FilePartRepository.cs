@@ -1,4 +1,5 @@
 ﻿using AkkaDistribution.Common;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ValueGeneration;
 using System;
 using System.Collections;
@@ -16,48 +17,47 @@ namespace AkkaDistribution.Client.Data
             this.factory = factory;
         }
 
-        private T WithTransaction<T>(Func<T> func, ClientDbContext context)
-        {
-            using var transaction = context.Database.BeginTransaction();
-
-            try
-            {
-                var x = func();
-
-                transaction.Commit();
-
-                return x;
-            }
-            catch (Exception)
-            {
-                transaction.Rollback();
-                throw;
-            }
-        }
-
         public int Add(FilePartMessage filePartMessage)
         {
-            using var context = this.factory.Create();
-
-            FilePart newFilePart = new()
+            try
             {
-                Filename = filePartMessage.Filename,
-                FileHash = filePartMessage.FileHash,
-                Position = filePartMessage.Position,
-                TotalPieces = filePartMessage.TotalPieces,
-                Payload = filePartMessage.FilePart,
-            };
 
-            var id = WithTransaction<int>(() =>
-            {
+                using var context = this.factory.Create();
+                //using var transaction = context.Database.BeginTransaction();
+
+                FilePart newFilePart = new()
+                {
+                    Filename = filePartMessage.Filename,
+                    FileHash = filePartMessage.FileHash,
+                    Position = filePartMessage.Position,
+                    TotalPieces = filePartMessage.TotalPieces,
+                    Payload = filePartMessage.FilePart,
+                };
+
+                //try
+                //{
                 context.FileParts.Add(newFilePart);
 
                 context.SaveChanges();
 
-                return newFilePart.FilePartId;
-            }, context);
+                //transaction.Commit();
 
-            return id;
+                return newFilePart.FilePartId;
+                //}
+                //catch (Exception)
+                //{
+                //    transaction.Rollback();
+                //    throw;
+                //}
+
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+                Console.WriteLine("Position:" + filePartMessage.Position);
+
+                return -1;
+            }
         }
 
         public bool CheckThatDbMatchesManifest(Common.Manifest manifest)
@@ -110,6 +110,8 @@ namespace AkkaDistribution.Client.Data
 
             List<MissingPiece> missingPieces = new();
 
+            var filesThatHaveReceivedPieces = groupList.Select(s => s.First().Filename).ToHashSet();
+
             foreach (var group in groupList)
             {
                 var filename = group.First().Filename;
@@ -152,11 +154,13 @@ namespace AkkaDistribution.Client.Data
 
             context.SaveChanges();
 
-            var missingFiles = output
-                .Select(s => (s.Filename, s.FileHash))
+            var missingFilenames = manifest.Files.Select(s => s.Filename)
                 .ToHashSet()
-                .Except(manifest.Files.Select(s => (s.Filename, s.FileHash)).ToHashSet())
-                .Select(s => new ManifestFile(s.Filename, s.FileHash))
+                .Except(filesThatHaveReceivedPieces)
+                .ToArray();
+
+            var missingFiles = manifest.Files
+                .Where(w => missingFilenames.Contains(w.Filename))
                 .ToArray();
 
             return new MissingPieces(output.ToArray(), missingFiles);
@@ -167,6 +171,7 @@ namespace AkkaDistribution.Client.Data
             return getMissingPositions(missing, new List<int[]>());
         }
 
+        // TODO: Blows the stack, needs trampoline.
         private static List<int[]> getMissingPositions(int[] missing, List<int[]> collectorSet)
         {
             if (missing.Length == 0)
@@ -204,23 +209,24 @@ namespace AkkaDistribution.Client.Data
             return getMissingPositions(missing[newCollection.Count..], collectorSet);
         }
 
+        public record FakeTuple(int Position, string Payload);
+
         public string GetFilePiecesByFilenameAndHash(string filename, string fileHash)
         {
             using var context = this.factory.Create();
 
-            var x = context.FileParts
+            // TODO: Very slow.
+            return context.FileParts
+                .AsNoTracking()
                 .Where(w => w.Filename == filename)
                 .Where(w => w.FileHash == fileHash)
-                .OrderBy(o => o.Position)
-                .Select(s => new Tuple<int, string>(s.Position, s.Payload))
-                .ToList();
-
-            var y = x
+                .Select(s => new FakeTuple(s.Position, s.Payload))
                 .Distinct()
-                .Select(s => s.Item2)
-                .ToList();
-
-            return y.Aggregate((a, b) => a + b);
+                .AsEnumerable()
+                .OrderBy(o => o.Position)
+                .Select(s => s.Payload)
+                .ToArray()
+                .Aggregate((a, b) => a + b);
         }
     }
 }

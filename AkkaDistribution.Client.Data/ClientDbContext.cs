@@ -6,7 +6,7 @@ namespace AkkaDistribution.Client.Data
     {
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
-            optionsBuilder.UseSqlite("Data Source=filesync.sqlite");
+            optionsBuilder.UseSqlite("Data Source=filesync.sqlite;Pooling=false;Cache=Shared;");
         }
 
         public DbSet<FilePart> FileParts { get; set; }
