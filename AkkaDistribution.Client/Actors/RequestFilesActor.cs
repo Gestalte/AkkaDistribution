@@ -11,50 +11,90 @@ namespace AkkaDistribution.Client.Actors // Note: actual namespace depends on th
         private readonly ActorSelection manifestActor;
         private readonly ActorSelection fileTransferActor;
         private readonly IManifestRepository manifestRepository;
+        private readonly IFilePartRepository filePartRepository;
+        private readonly FileBox filebox;
 
-        public RequestFilesActor(IManifestRepository manifestRepository)
+        public RequestFilesActor(IManifestRepository manifestRepository, IFilePartRepository filePartRepository, FileBox filebox)
         {
             this.manifestRepository = manifestRepository;
+            this.filePartRepository = filePartRepository;
+            this.filebox = filebox;
 
             // TODO: load from config
             manifestActor = Context.ActorSelection("akka.tcp://server-actor-system@localhost:8080/user/file-transfer/manifest-actor");
             fileTransferActor = Context.ActorSelection("akka.tcp://server-actor-system@localhost:8080/user/file-transfer");
 
-            Receive<ManifestRequest>(_ =>
-            {
-                logger.Info("Recieved RequestManifest");
-                RequestFiles();
-            });
-
             Receive<Common.Manifest>(manifest =>
             {
-                logger.Info("Recieved Manifest");
-                RequestFiles(manifest);
+                logger.Info($"Recieved {nameof(Common.Manifest)}");
+
+                HandleManiest(manifest);
+            });
+
+            Receive<ManifestRequest>(_ =>
+            {
+                logger.Info($"Recieved {nameof(ManifestRequest)}");
+
+                var remoteManifest = manifestActor.Ask<Common.Manifest>(new ManifestRequest(), TimeSpan.FromSeconds(5)).Result;
+
+                Context.Self.Tell(remoteManifest);
+
+                HandleManiest(remoteManifest);
             });
         }
 
-        private void RequestFiles(Common.Manifest manifest = null!)
-        {
-            if (manifest == null)
-            {
-                var received = manifestActor.Ask<Common.Manifest>(new ManifestRequest()).Result;
+        public static event Action<Exception> ShowError;
+        public static event Action AlreadyUpToDate;
 
-                Context.Self.Tell(received);
+        protected override void PostRestart(Exception reason)
+        {
+            logger.Error(reason.Message);
+
+            ShowError?.Invoke(reason);
+        }
+
+        private void HandleManiest(Common.Manifest remoteManifest)
+        {
+            logger.Info($"Recieved Manifest: {remoteManifest.Timestamp}");
+            remoteManifest.Files.ToList().ForEach(f => logger.Info($"folderManifest {f.FileHash} - {f.Filename}"));
+
+            this.manifestRepository.SaveManifest(remoteManifest);
+
+            var missingPieces = this.filePartRepository.GetMissingFilePieces(remoteManifest);
+
+            if (remoteManifest.Files.Count == 0)
+            {
+                var parent = Context.ActorSelection("..");
+                parent.Tell(new WakeUp());
+            }
+            else if (missingPieces.Missing.Length == 0 && missingPieces.MissingFiles.Length > 0)
+            {
+                fileTransferActor.Tell(new Common.Manifest(DateTime.UtcNow, missingPieces.MissingFiles.ToHashSet()));
+            }
+            else if (missingPieces.Missing.Length == 0 && missingPieces.MissingFiles.Length == 0)
+            {
+                var folderManifest = FileHelper.GenerateManifestFromDirectory(filebox);
+
+                var diff = remoteManifest.Compare(folderManifest);
+
+                if (diff.Files.Count > 0)
+                {
+                    fileTransferActor.Tell(diff);
+                }
+                else
+                {
+                    AlreadyUpToDate?.Invoke();
+                }
             }
             else
             {
-                logger.Info($"Manifest: {manifest.Timestamp}");
-                manifest.Files.ToList().ForEach(f => logger.Info($"folderManifest {f.FileHash} - {f.Filename}"));
-
-                this.manifestRepository.SaveManifest(manifest);
-
-                fileTransferActor.Tell(manifest);
+                fileTransferActor.Tell(missingPieces);
             }
         }
 
-        public static Props CreateProps(IManifestRepository manifestRepository)
+        public static Props CreateProps(IManifestRepository manifestRepository, IFilePartRepository filePartRepository, FileBox filebox)
         {
-            return Props.Create(() => new RequestFilesActor(manifestRepository));
+            return Props.Create(() => new RequestFilesActor(manifestRepository, filePartRepository, filebox));
         }
     }
 }

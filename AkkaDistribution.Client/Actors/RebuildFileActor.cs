@@ -1,6 +1,6 @@
 ﻿using Akka.Actor;
 using Akka.Event;
-using AkkaDistribution.Client;
+using Akka.Util.Internal;
 using AkkaDistribution.Client.Data;
 using AkkaDistribution.Common;
 
@@ -13,6 +13,7 @@ namespace AkkaDistribution.Client.Actors // Note: actual namespace depends on th
         private readonly IManifestRepository manifestRepository;
         private readonly IFilePartRepository filePartRepository;
         private readonly ActorSelection manifestActor;
+        private readonly ActorSelection serverActorCoordinator;
         private readonly FileBox fileBox;
 
         private ICancelable schedulerCancel = default!;
@@ -25,6 +26,7 @@ namespace AkkaDistribution.Client.Actors // Note: actual namespace depends on th
             this.fileBox = fileBox;
 
             manifestActor = Context.ActorSelection("akka.tcp://server-actor-system@localhost:8080/user/file-transfer/manifest-actor");
+            serverActorCoordinator = Context.ActorSelection("akka.tcp://server-actor-system@localhost:8080/user/file-transfer");
 
             logger.Info(Context.Self.Path.ToStringWithAddress());
 
@@ -38,19 +40,19 @@ namespace AkkaDistribution.Client.Actors // Note: actual namespace depends on th
             schedulerCancel = scheduler.ScheduleTellRepeatedlyCancelable(0, 10000, Self, new CheckIfTimedOut(), Self);
             logger.Info("Started scheduler");
 
-            Receive<WakeUp>(_ => { logger.Info("Received WakeUp, but already Awake"); });
+            Receive<WakeUp>(_ => { });
 
             Receive<ResetTimeout>(_ =>
             {
-                logger.Info("Received ResetTimeout");
-
                 timeout = DateTime.UtcNow;
             });
 
             Receive<TransferComplete>(_ =>
             {
                 logger.Info("Received TransferComplete");
+
                 AllFilesReceived?.Invoke();
+
                 Become(Sleeping);
             });
 
@@ -67,16 +69,21 @@ namespace AkkaDistribution.Client.Actors // Note: actual namespace depends on th
                     // Check if db file parts match what is described in the manifest.
                     var missingFiles = this.filePartRepository.GetMissingFilePieces(dbManifest);
 
-                    if (missingFiles.Missing.Length != 0 && missingFiles.MissingFiles.Length != 0)
+                    if (missingFiles.Missing.Length != 0 || missingFiles.MissingFiles.Length != 0)
                     {
-                        logger.Info($"Missing File parts: {missingFiles.Missing.Length} files still have missing parts.");
+                        logger.Info($"Missing File parts: {missingFiles.Missing.Length} files still have missing parts and {missingFiles.MissingFiles.Length} files are completely missing.");
 
-                        manifestActor.Tell(missingFiles);
+                        serverActorCoordinator.Tell(missingFiles);
                     }
                     else
                     {
                         logger.Info($"No missing file parts");
 
+                        // Delete whatever is in receiving folder.
+                        var filesInFolder = Directory.EnumerateFiles(fileBox.DirectoryPath, "*.*", SearchOption.AllDirectories).ToList();
+                        filesInFolder.ForEach(File.Delete);                        
+
+                        // Write files to the receiving folder from the DB.
                         foreach (var file in dbManifest.Files)
                         {
                             string base64 = this.filePartRepository.GetFilePiecesByFilenameAndHash(file.Filename, file.FileHash);
@@ -88,12 +95,7 @@ namespace AkkaDistribution.Client.Actors // Note: actual namespace depends on th
 
                         logger.Info($"Files have been rebuilt.");
 
-                        Become(Sleeping);
-
-                        // TODO: Check if built files match the manifest.
-                        // TODO: If it some don't, delete the files that are wrong and try them again.
-                        // TODO: Delete all file parts from the DB.
-                        // TODO: if everything is fine send self TransferComplete
+                        Self.Tell(new TransferComplete());
                     }
                 }
             });
@@ -113,6 +115,11 @@ namespace AkkaDistribution.Client.Actors // Note: actual namespace depends on th
                 logger.Info("Received WakeUp");
 
                 Become(Awake);
+            });
+
+            Receive<CheckIfTimedOut>(_ =>
+            {
+                logger.Info($"Received {nameof(CheckIfTimedOut)} while sleeping.");
             });
         }
 
