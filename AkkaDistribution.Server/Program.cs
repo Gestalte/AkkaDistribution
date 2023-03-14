@@ -1,5 +1,6 @@
 ﻿using Akka.Actor;
 using Akka.Configuration;
+using Akka.Event;
 using Akka.Util.Internal;
 using AkkaDistribution.Common;
 using AkkaDistribution.Server.Actors;
@@ -37,6 +38,8 @@ namespace AkkaDistribution.Server
 
             Props props = FileTransferSupervisor.CreateProps(fileBox, manifestRepo, FilePartDeliveryRepo);
             var fileTransferActor = actorSystem.ActorOf(props, "file-transfer");
+
+            actorSystem.EventStream.Subscribe(fileTransferActor, typeof(DeadLetter));
 
             Console.WriteLine("Ready");
 

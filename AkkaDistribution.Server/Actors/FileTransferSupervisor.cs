@@ -33,6 +33,13 @@ namespace AkkaDistribution.Server.Actors
 
             Receive<MissingPieces>(serverActorRouter.Forward);
             Receive<Manifest>(serverActorRouter.Forward);
+            Receive<DeadLetter>(dl => HandleDeadletter(dl));
+        }
+
+        private void HandleDeadletter(DeadLetter dl)
+        {
+            logger.Warning($"DeadLetter captured: {dl.Message}, sender: {dl.Sender}, recipient: {dl.Recipient}");
+            Console.WriteLine($"DeadLetter captured: {dl.Message}, sender: {dl.Sender}, recipient: {dl.Recipient}");
         }
 
         public static Props CreateProps

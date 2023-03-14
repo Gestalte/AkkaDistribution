@@ -18,6 +18,7 @@ namespace AkkaDistribution.Server.Actors
             , IFilePartDeliveryRepository filePartDeliveryRepository
             )
         {
+            // TODO: Its possible for for subsequent requests to get old manifests while the new one is being created.
             Receive<ManifestRequest>(_ =>
             {
                 logger.Info($"Received ManifestRequest");
@@ -26,18 +27,6 @@ namespace AkkaDistribution.Server.Actors
 
                 logger.Info($"folderManifest: {folderManifest.Timestamp}");
                 folderManifest.Files.ForEach(f => logger.Info($"folderManifest {f.FileHash} - {f.Filename}"));
-
-                Sender.Tell(folderManifest);
-                logger.Info($"Manifest Sent to: " + Sender.Path);
-
-                Self.Tell(new ManifestUpdate(folderManifest));
-            });
-
-            Receive<ManifestUpdate>(m =>
-            {
-                logger.Info($"Received ManifestUpdate");
-
-                var folderManifest = m.Manifest;
 
                 var dbManifest = manifestRepository.GetNewestManifest();
 
@@ -73,7 +62,19 @@ namespace AkkaDistribution.Server.Actors
 
                     WaitForSavingManifest?.Invoke(false);
                 }
+
+                Sender.Tell(folderManifest);
+                logger.Info($"Manifest Sent to: " + Sender.Path);
             });
+        }
+
+        public static event Action<Exception> ShowError;
+
+        protected override void PostRestart(Exception reason)
+        {
+            logger.Error(reason.Message);
+
+            ShowError?.Invoke(reason);
         }
 
         public static Props CreateProps

@@ -3,6 +3,7 @@ using Akka.Event;
 using Akka.Routing;
 using AkkaDistribution.Common;
 using AkkaDistribution.Server.Data;
+using System.Security.Cryptography.X509Certificates;
 
 namespace AkkaDistribution.Server.Actors
 {
@@ -59,25 +60,25 @@ namespace AkkaDistribution.Server.Actors
                 logger.Info($"{this.address} Received Manifest");
                 logger.Info($"Sender: {Sender.Path}");
 
-                var dbManifest = this.manifestRepository.GetNewestManifest();
+                //var dbManifest = this.manifestRepository.GetNewestManifest();
 
-                var difference = FileHelper.Difference(manifest, dbManifest);
+                //var difference = FileHelper.Difference(manifest, dbManifest);
 
-                if (difference.Files.Count != 0)
+                //if (difference.Files.Count != 0)
+                //{
+                //    Sender.Tell(dbManifest); // TODO: Sender is always FileTransferSupervisor
+
+                //    logger.Info($"{this.address} Client had an older manifest, sent them a new one.");
+                //}
+                //else
+                //{
+                var FilePartMessages = this.filePartDeliveryRepository.GetFilePartsDeliveriesByManifest(manifest);
+
+                for (int i = 0; i < FilePartMessages.Count; i++)
                 {
-                    Sender.Tell(dbManifest); // TODO: Sender is always FileTransferSupervisor
-
-                    logger.Info($"{this.address} Client had an older manifest, sent them a new one.");
+                    this.sendFilePartActor.Tell(FilePartMessages[i]);
                 }
-                else
-                {
-                    var FilePartDeliveries = this.filePartDeliveryRepository.GetFilePartsDeliveriesByManifest(manifest);
-
-                    for (int i = 0; i < FilePartDeliveries.Count; i++)
-                    {
-                        this.sendFilePartActor.Tell(FilePartDeliveries[i]);
-                    }
-                }
+                //}
             });
 
             Receive<MissingPieces>(missingPieces =>
@@ -113,37 +114,32 @@ namespace AkkaDistribution.Server.Actors
                 {
                     logger.Info($"{this.address} Received invalid Missing pieces, sent back a new manifest");
 
-                    Sender.Tell(dbManifest); // TODO: make sure this is being sent to the right actor.
+                    var senderParent = Context.ActorSelection(Sender.Path.Parent);
+
+                    senderParent.Tell(dbManifest);
                 }
                 else // Missing files are valid
                 {
                     logger.Info($"{this.address} Received valid Missing pieces");
 
-                    List<FilePartDelivery> FilePartDeliveries = new();
+                    List<FilePartMessage> FilePartMessages = new();
 
-                    static FilePartDelivery toFilePartDelivery(FilePartMessage m)
-                        => new()
-                        {
-                            Filename = m.Filename,
-                            FileHash = m.FileHash,
-                            TotalPieces = m.TotalPieces,
-                            Position = m.Position,
-                            Payload = m.FilePart,
-                        };
+                    static FilePartMessage toFilePartMessage(FilePartMessage m)
+                        => new(m.Filename, m.FileHash, m.TotalPieces, m.FilePart, m.Position);
 
-                    FilePartDeliveries.AddRange(missingPieces.MissingFiles
+                    FilePartMessages.AddRange(missingPieces.MissingFiles
                          .SelectMany(s => filePartMessages.Where(w => w.Filename == s.Filename))
-                        .Select(toFilePartDelivery)
+                        .Select(toFilePartMessage)
                         .ToArray());
 
-                    FilePartDeliveries.AddRange(missingPieces.Missing
+                    FilePartMessages.AddRange(missingPieces.Missing
                         .SelectMany(s => filePartMessages.Where(w => w.Filename == s.Filename))
-                        .Select(toFilePartDelivery)
+                        .Select(toFilePartMessage)
                         .ToArray());
 
-                    for (int i = 0; i < FilePartDeliveries.Count; i++)
+                    for (int i = 0; i < FilePartMessages.Count; i++)
                     {
-                        this.sendFilePartActor.Tell(FilePartDeliveries[i]);
+                        this.sendFilePartActor.Tell(FilePartMessages[i]);
                     }
                 }
             });
